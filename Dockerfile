@@ -76,3 +76,9 @@ RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 RUN     wget -qO- wget https://github.com/infracost/infracost/releases/download/v0.10.13/infracost-linux-amd64.tar.gz | tar zxv && \
         chmod 700 infracost-linux-amd64 && \
         cp ./infracost-linux-amd64 /bin/infracost
+
+
+# Install ArgoCD CLI
+RUN curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 &&\
+    install -m 555 argocd-linux-amd64 /usr/local/bin/argocd && \
+    rm argocd-linux-amd64
