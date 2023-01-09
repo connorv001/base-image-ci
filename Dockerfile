@@ -1,84 +1,60 @@
-## Shubham's base image for CI Related Operations.
-FROM debian:buster
+FROM alpine:3.14
 
 
-# Build arguments, which are used to control version numbers.
-ARG VERSION_TERRAFORM=1.3.3
-ARG VERSION_TFLINT=0.18.0
-ARG VERSION_AWS_CLI=1.16
-ARG VERSION_CHECKOV=1.0.484
-ENV KUBE_VERSION=1.25.3
-ENV HELM_VERSION=3.10.1
-ENV YQ_VERSION=4.28.2
-ENV TARGETOS=linux
-ENV TARGETARCH=amd64
-ENV KOPS_VERSION=v1.23.0
 
-# Install some common tools we'll need for builds.
-# Also install tools needed to use this as a CircleCI 2 build image. See:
-#   https://circleci.com/docs/2.0/custom-images/
-RUN apt-get update -qq && apt-get install -qq -y \
-    make \
-    wget \
-    git \
-    ssh \
-    tar \
-    gzip \
-    unzip \
-    ca-certificates \
-    python3-dev \
-    python3-pip \
-    shellcheck \
-    curl
+# TODO : Update to latest versions
+ARG TERRAFORM_VERSION=0.15.7
+ARG TERRAGRUNT_VERSION=0.26.7
+ARG TERRAFORM_COMPLIANCE_VERSION=0.6.2
+ARG TF_LINT_VERSION=0.18.0
+ARG AWS_CLI_VERSION=2.4.5
+ARG KOPS_VERSION=1.18.2
+ARG YQ_VERSION=4.4.0
+ARG JQ_VERSION=1.8
+ARG CHECKOV_VERSION=1.2.2
 
-# Basic Tools:
-RUN apt-get update \
-    && apt-get install --auto-remove -y wget curl jq \
-    && wget -q https://storage.googleapis.com/kubernetes-release/release/v${KUBE_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl -O /usr/local/bin/kubectl \
-    && wget -q https://get.helm.sh/helm-v${HELM_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz -O - | tar -xzO ${TARGETOS}-${TARGETARCH}/helm > /usr/local/bin/helm \
-    && wget -q https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_${TARGETOS}_${TARGETARCH} -O /usr/local/bin/yq \
-    && chmod +x /usr/local/bin/helm /usr/local/bin/kubectl /usr/local/bin/yq  \
-    && curl -O --location --silent --show-error https://github.com/kubernetes/kops/releases/download/${KOPS_VERSION}/kops-linux-amd64 \
-    && mv kops-linux-amd64 /usr/local/bin/kops 
-RUN \
-    # Install jq-1.6 (final release)
-    curl -s -L -o /tmp/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && \
-    mv /tmp/jq /usr/local/bin/jq && \
-    chmod +x /usr/local/bin/jq
+# Install dependencies
+RUN apk update && apk add --no-cache git curl bash openssh
 
-# Install Terraform.
-RUN wget -q https://releases.hashicorp.com/terraform/${VERSION_TERRAFORM}/terraform_${VERSION_TERRAFORM}_linux_amd64.zip
-RUN unzip terraform_${VERSION_TERRAFORM}_linux_amd64.zip
-RUN install terraform /usr/local/bin
-RUN terraform -v
+# Install kubectl
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+RUN chmod +x ./kubectl
+RUN mv ./kubectl /usr/local/bin/kubectl
 
-# Install tflint.
-RUN wget -q https://github.com/wata727/tflint/releases/download/v${VERSION_TFLINT}/tflint_linux_amd64.zip
-RUN unzip tflint_linux_amd64.zip
-RUN install tflint /usr/local/bin
-RUN chmod ugo+x /usr/local/bin/tflint
-RUN tflint -v
+# Install Helm
+RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+RUN chmod 700 get_helm.sh
+RUN ./get_helm.sh
 
-# Install Checkov.
-RUN pip3 install --upgrade setuptools
-RUN pip3 install checkov==${VERSION_CHECKOV}
-RUN checkov -v
+# Install Terraform
+RUN curl -fsSL -o terraform.zip https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+RUN unzip terraform.zip
+RUN mv terraform /usr/local/bin/
 
-# Install the AWS CLI.
-RUN pip3 install awscli==${VERSION_AWS_CLI}
+# Install Terragrunt
+RUN curl -fsSL -o terragrunt https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64
+RUN chmod +x terragrunt
+RUN mv terragrunt /usr/local/bin/
 
-# Install the Azure CLI.
-RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+# Install Terraform Compliance
+RUN curl -fsSL -o terraform-compliance https://github.com/litmuschaos/terraform-compliance/releases/download/${TERRAFORM_COMPLIANCE_VERSION}/terraform-compliance_${TERRAFORM_COMPLIANCE_VERSION}_Linux_x86_64.tar.gz
+RUN tar -xf terraform-compliance
+RUN mv terraform-compliance /usr/local/bin/
 
+# Install tf-lint
+RUN curl -fsSL -o tf-lint https://github.com/terraform-linters/tflint/releases/download/v${TF_LINT_VERSION}/tflint_linux_amd64.zip
+RUN unzip tf-lint
+RUN mv tflint /usr/local/bin/
 
-# INstall Infracost
+# Install AWS CLI
+RUN curl -fsSL -o aws-cli-exe https://awscli.amazonaws.com
 
-RUN     wget -qO- wget https://github.com/infracost/infracost/releases/download/v0.10.13/infracost-linux-amd64.tar.gz | tar zxv && \
-        chmod 700 infracost-linux-amd64 && \
-        cp ./infracost-linux-amd64 /bin/infracost
+# Install kaniko
+RUN curl -fsSL -o /tmp/kaniko.tar.gz https://github.com/GoogleContainerTools/kaniko/releases/download/v0.12.0/kaniko-v0.12.0.tar.gz
+RUN tar -C /tmp -xvzf /tmp/kaniko.tar.gz
+RUN mv /tmp/kaniko-v0.12.0/executor /usr/local/bin/kaniko
 
-
-# Install ArgoCD CLI
-RUN curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 &&\
-    install -m 555 argocd-linux-amd64 /usr/local/bin/argocd && \
-    rm argocd-linux-amd64
+# Install cosign
+RUN curl -fsSL -o cosign.zip https://github.com/shyiko/cosign/releases/download/v1.0.0/cosign-v1.0.0-linux-amd64.zip
+RUN unzip cosign.zip
+RUN mv cosign /usr/local/bin/
