@@ -14,7 +14,7 @@ ARG JQ_VERSION=1.8
 ARG CHECKOV_VERSION=1.2.2
 
 # Install dependencies
-RUN apk update && apk add --no-cache git curl bash openssh
+RUN apk update && apk add --no-cache git curl bash openssh openssl
 
 # Install kubectl
 RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
